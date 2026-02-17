@@ -309,6 +309,16 @@ main.main--immersive canvas {
   max-height: 100%;
 }
 
+/* Games without touch controls (Memory, 2048) fill the area */
+main.main--immersive .memory-board,
+main.main--immersive .p2048-board {
+  flex: 1;
+}
+
+main.main--immersive .memory-info {
+  flex-shrink: 0;
+}
+
 /* --- Reduced motion --- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

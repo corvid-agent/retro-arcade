@@ -68,6 +68,7 @@ const TILE_COLORS: Record<number, { bg: string; fg: string }> = {
       background-color: var(--bg-surface);
       width: 100%;
       aspect-ratio: 1;
+      max-height: 100%;
       touch-action: none;
     }
     .p2048-row {

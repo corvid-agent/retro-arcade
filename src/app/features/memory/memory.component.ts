@@ -51,9 +51,11 @@ import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } fr
     .memory-board {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
       gap: 8px;
       padding: 12px;
       width: 100%;
+      height: 100%;
     }
     .memory-card {
       aspect-ratio: 1;

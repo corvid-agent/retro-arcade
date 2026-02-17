@@ -1,28 +1,24 @@
 import { Component, ChangeDetectionStrategy, input, output, signal, OnDestroy } from '@angular/core';
 
-export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'slider' | 'none';
+export type TouchLayout = 'dpad' | 'joystick-drop' | 'left-right-fire' | 'slider' | 'none';
 
 @Component({
   selector: 'app-touch-controls',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @switch (layout()) {
-      @case ('joystick') {
-        <div class="touch touch--joystick">
-          <div class="touch__stick-zone"
-               (pointerdown)="joystickDown($event)"
-               (pointermove)="joystickMove($event)"
-               (pointerup)="joystickUp($event)"
-               (pointercancel)="joystickUp($event)"
-               (pointerleave)="joystickUp($event)"
-               role="button"
-               aria-label="Joystick — drag to change direction"
-               [attr.touch-action]="'none'">
-            <div class="touch__stick-knob"
-                 [class.touch__stick-knob--active]="stickDir()"
-                 [style.transform]="'translate(' + knobX() + 'px,' + knobY() + 'px)'">
-            </div>
+      @case ('dpad') {
+        <div class="touch touch--dpad">
+          <button class="touch__dir touch__dir--up"
+                  (pointerdown)="emitOnce('up')" aria-label="Up">&uarr;</button>
+          <div class="touch__dir-row">
+            <button class="touch__dir"
+                    (pointerdown)="emitOnce('left')" aria-label="Left">&larr;</button>
+            <button class="touch__dir"
+                    (pointerdown)="emitOnce('right')" aria-label="Right">&rarr;</button>
           </div>
+          <button class="touch__dir touch__dir--down"
+                  (pointerdown)="emitOnce('down')" aria-label="Down">&darr;</button>
         </div>
       }
       @case ('joystick-drop') {
@@ -47,7 +43,7 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
                     aria-label="Rotate">&#x21BB;</button>
             <button class="touch__btn touch__btn--action touch__btn--drop"
                     (pointerdown)="emitOnce('drop')"
-                    aria-label="Drop">DROP</button>
+                    aria-label="Hard drop">DROP</button>
           </div>
         </div>
       }
@@ -78,47 +74,71 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
     :host { display: block; }
     .touch {
       display: none;
-      padding: var(--space-md);
-      padding-bottom: calc(var(--space-md) + var(--safe-bottom));
-      gap: var(--space-md);
+      padding: var(--space-sm) var(--space-md);
+      padding-bottom: calc(var(--space-sm) + var(--safe-bottom));
+      gap: var(--space-sm);
     }
     @media (max-width: 768px) {
       .touch { display: flex; }
     }
 
-    /* Joystick layout */
-    .touch--joystick {
-      justify-content: center;
+    /* === D-pad layout (Snake) === */
+    .touch--dpad {
+      flex-direction: column;
       align-items: center;
+      gap: 4px;
+    }
+    .touch__dir-row {
+      display: flex;
+      gap: 4px;
+    }
+    .touch__dir {
+      font-family: var(--font-pixel);
+      font-size: 1rem;
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 65, 0.2);
+      background: rgba(0, 255, 65, 0.08);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      color: var(--accent-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.1s ease;
+    }
+    .touch__dir:active {
+      background: rgba(0, 255, 65, 0.2);
+      box-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+      border-color: rgba(0, 255, 65, 0.4);
+    }
+    /* Gap between left and right to form the cross shape */
+    .touch__dir-row {
+      gap: 60px;
     }
 
-    /* Joystick-drop layout */
+    /* === Joystick-drop layout (Tetris) === */
     .touch--joystick-drop {
       justify-content: space-around;
       align-items: center;
     }
-
-    /* Left-right-fire layout */
-    .touch--lrf {
-      justify-content: space-around;
-      align-items: center;
-    }
-    .touch__move-group {
-      display: flex;
-      gap: var(--space-sm);
-    }
     .touch__action-group {
       display: flex;
       flex-direction: column;
-      gap: var(--space-sm);
+      gap: var(--space-xs);
       align-items: center;
     }
 
-    /* Joystick base */
+    /* Joystick base — compact */
     .touch__stick-zone {
       position: relative;
-      width: 120px;
-      height: 120px;
+      width: 100px;
+      height: 100px;
       border-radius: 50%;
       background: rgba(0, 255, 65, 0.06);
       border: 1px solid rgba(0, 255, 65, 0.15);
@@ -133,8 +153,8 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
 
     /* Joystick knob */
     .touch__stick-knob {
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: rgba(0, 255, 65, 0.12);
       border: 1px solid rgba(0, 255, 65, 0.3);
@@ -148,12 +168,22 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
       border-color: rgba(0, 255, 65, 0.5);
     }
 
-    /* Buttons */
+    /* === Left-right-fire layout (Invaders) === */
+    .touch--lrf {
+      justify-content: space-around;
+      align-items: center;
+    }
+    .touch__move-group {
+      display: flex;
+      gap: var(--space-sm);
+    }
+
+    /* === Shared buttons === */
     .touch__btn {
       font-family: var(--font-pixel);
       font-size: 0.8rem;
-      width: 64px;
-      height: 64px;
+      width: 56px;
+      height: 56px;
       border-radius: 12px;
       border: 1px solid rgba(0, 255, 65, 0.2);
       background: rgba(0, 255, 65, 0.08);
@@ -177,8 +207,8 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
 
     /* Action buttons (fire, rotate, drop) */
     .touch__btn--action {
-      width: 80px;
-      height: 80px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       border-color: rgba(255, 176, 0, 0.25);
       background: rgba(255, 176, 0, 0.08);
@@ -191,9 +221,9 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
       border-color: rgba(255, 176, 0, 0.4);
     }
     .touch__btn--drop {
-      width: 64px;
-      height: 64px;
-      font-size: 0.45rem;
+      width: 56px;
+      height: 56px;
+      font-size: 0.4rem;
     }
   `],
 })
@@ -207,7 +237,7 @@ export class TouchControlsComponent implements OnDestroy {
   readonly knobY = signal(0);
   readonly stickDir = signal<string | null>(null);
 
-  // Hold-to-repeat timers (for buttons only)
+  // Hold-to-repeat timers (for movement buttons)
   private repeatTimers = new Map<string, { delay: ReturnType<typeof setTimeout> | null; interval: ReturnType<typeof setInterval> | null }>();
 
   // Joystick state
@@ -219,7 +249,7 @@ export class TouchControlsComponent implements OnDestroy {
   private stickInterval: ReturnType<typeof setInterval> | null = null;
 
   private readonly DEAD_ZONE = 15;
-  private readonly MAX_TRAVEL = 40;
+  private readonly MAX_TRAVEL = 36;
   private readonly REPEAT_DELAY = 180;
   private readonly REPEAT_RATE = 80;
 
@@ -252,7 +282,7 @@ export class TouchControlsComponent implements OnDestroy {
     this.released.emit(act);
   }
 
-  // --- Virtual joystick ---
+  // --- Virtual joystick (Tetris: left/right/down only) ---
 
   joystickDown(e: PointerEvent): void {
     if (this.stickActive) return;
@@ -297,38 +327,26 @@ export class TouchControlsComponent implements OnDestroy {
     const dy = clientY - this.stickCenterY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
-    const isDropLayout = this.layout() === 'joystick-drop';
 
-    // Clamp knob visual position
+    // Clamp knob visual — restrict upward movement
     const clampedDist = Math.min(dist, this.MAX_TRAVEL);
-    let visualX = Math.cos(angle) * clampedDist;
-    let visualY = Math.sin(angle) * clampedDist;
-
-    // For joystick-drop, restrict knob from going upward (visual cue)
-    if (isDropLayout && visualY < 0) {
-      visualY = 0;
-    }
+    const visualX = Math.cos(angle) * clampedDist;
+    const visualY = Math.max(0, Math.sin(angle) * clampedDist);
 
     this.knobX.set(Math.round(visualX));
     this.knobY.set(Math.round(visualY));
 
-    // Determine direction
+    // Determine direction (left/right/down only — no up)
     let newDir: string | null = null;
     if (dist > this.DEAD_ZONE) {
       const deg = angle * (180 / Math.PI);
       if (deg >= -45 && deg < 45) newDir = 'right';
       else if (deg >= 45 && deg < 135) newDir = 'down';
-      else if (deg >= -135 && deg < -45) newDir = 'up';
-      else newDir = 'left';
-
-      // Tetris joystick: ignore UP — rotate has its own button
-      if (isDropLayout && newDir === 'up') {
-        newDir = null;
-      }
+      else if (deg >= 135 || deg < -135) newDir = 'left';
+      // up quadrant (-135 to -45) → ignored
     }
 
     if (newDir !== this.stickDirection) {
-      // Direction changed — clear old interval
       if (this.stickInterval) {
         clearInterval(this.stickInterval);
         this.stickInterval = null;
@@ -341,14 +359,10 @@ export class TouchControlsComponent implements OnDestroy {
 
       if (newDir) {
         this.action.emit(newDir);
-
-        // Snake (joystick): no repeat — direction is set once, game loop handles movement
-        // Tetris (joystick-drop): repeat left/right/down for DAS (Delayed Auto Shift)
-        if (isDropLayout) {
-          this.stickInterval = setInterval(() => {
-            if (this.stickDirection) this.action.emit(this.stickDirection);
-          }, this.REPEAT_RATE);
-        }
+        // DAS repeat for Tetris movement
+        this.stickInterval = setInterval(() => {
+          if (this.stickDirection) this.action.emit(this.stickDirection);
+        }, this.REPEAT_RATE);
       }
     }
   }
