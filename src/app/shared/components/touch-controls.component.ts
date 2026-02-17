@@ -179,8 +179,6 @@ export type TouchLayout = 'dpad' | 'tetris' | 'left-right-fire' | 'slider' | 'no
 
     /* Action buttons (fire, rotate, drop) */
     .touch__btn--action {
-      width: 64px;
-      height: 64px;
       border-radius: 50%;
       border-color: rgba(255, 176, 0, 0.25);
       background: rgba(255, 176, 0, 0.08);
@@ -193,8 +191,6 @@ export type TouchLayout = 'dpad' | 'tetris' | 'left-right-fire' | 'slider' | 'no
       border-color: rgba(255, 176, 0, 0.4);
     }
     .touch__btn--drop {
-      width: 56px;
-      height: 56px;
       font-size: 0.4rem;
     }
   `],
