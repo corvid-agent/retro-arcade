@@ -26,13 +26,13 @@ import { ThemeService } from '../../core/services/theme.service';
           <button class="header__btn" (click)="theme.toggle()" aria-label="Toggle CRT mode">
             {{ theme.theme() === 'crt' ? 'CRT' : 'CLN' }}
           </button>
-          <button class="header__menu-btn" (click)="menuOpen.set(!menuOpen())" aria-label="Toggle menu">
+          <button class="header__menu-btn" (click)="menuOpen.set(!menuOpen())" aria-label="Toggle menu" [attr.aria-expanded]="menuOpen()" aria-controls="mobile-nav">
             {{ menuOpen() ? '&times;' : '&equiv;' }}
           </button>
         </div>
       </div>
       @if (menuOpen()) {
-        <div class="header__mobile-nav">
+        <div class="header__mobile-nav" id="mobile-nav">
           <a routerLink="/home" routerLinkActive="active" (click)="menuOpen.set(false)">Home</a>
           <a routerLink="/stats" routerLinkActive="active" (click)="menuOpen.set(false)">Stats</a>
           <a routerLink="/about" routerLinkActive="active" (click)="menuOpen.set(false)">About</a>
@@ -49,6 +49,7 @@ import { ThemeService } from '../../core/services/theme.service';
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border);
+      padding-top: var(--safe-top);
     }
     .header__inner {
       display: flex;

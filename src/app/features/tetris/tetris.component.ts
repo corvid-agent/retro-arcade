@@ -36,7 +36,7 @@ const CELL = 24;
         <span class="tetris-info__label">LEVEL: {{ level() }}</span>
         <span class="tetris-info__label">LINES: {{ lines() }}</span>
       </div>
-      <app-touch-controls layout="dpad-drop" (action)="onTouch($event)" />
+      <app-touch-controls layout="joystick-drop" (action)="onTouch($event)" />
       <app-high-scores [scores]="scoreService.getScores('tetris')" />
     </div>
   `,

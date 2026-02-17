@@ -6,6 +6,7 @@ import { BottomNavComponent } from './shared/components/bottom-nav.component';
 import { ToastContainerComponent } from './shared/components/toast-container.component';
 import { ThemeService } from './core/services/theme.service';
 import { KeyboardShortcutsService } from './core/services/keyboard-shortcuts.service';
+import { GameModeService } from './core/services/game-mode.service';
 
 @Component({
   selector: 'app-root',
@@ -13,13 +14,19 @@ import { KeyboardShortcutsService } from './core/services/keyboard-shortcuts.ser
   imports: [RouterOutlet, HeaderComponent, FooterComponent, BottomNavComponent, ToastContainerComponent],
   template: `
     <a class="skip-to-content" href="#main-content">Skip to content</a>
-    <app-header />
-    <main id="main-content">
+    @if (!gameMode.immersive()) {
+      <app-header />
+    }
+    <main id="main-content" [class.main--immersive]="gameMode.immersive()">
       <router-outlet />
     </main>
-    <app-footer />
+    @if (!gameMode.immersive()) {
+      <app-footer />
+    }
     <app-toast-container />
-    <app-bottom-nav />
+    @if (!gameMode.immersive()) {
+      <app-bottom-nav />
+    }
 
     @if (shortcuts.showHelp()) {
       <div class="shortcuts-overlay" (click)="shortcuts.showHelp.set(false)">
@@ -38,6 +45,11 @@ import { KeyboardShortcutsService } from './core/services/keyboard-shortcuts.ser
   styles: [`
     main {
       min-height: calc(100vh - 56px);
+    }
+    main.main--immersive {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
     }
     .shortcuts-overlay {
       position: fixed;
@@ -89,6 +101,7 @@ import { KeyboardShortcutsService } from './core/services/keyboard-shortcuts.ser
 export class App implements OnInit {
   private readonly theme = inject(ThemeService);
   protected readonly shortcuts = inject(KeyboardShortcutsService);
+  protected readonly gameMode = inject(GameModeService);
   private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {

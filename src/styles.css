@@ -54,6 +54,10 @@
   /* Transition */
   --transition-fast: 0.15s ease;
   --transition: 0.25s ease;
+
+  /* Safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html {

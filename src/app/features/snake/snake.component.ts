@@ -30,7 +30,7 @@ const TICK_MS = 150;
       >
         <canvas #canvas class="snake-canvas" [width]="canvasW" [height]="canvasH"></canvas>
       </app-game-shell>
-      <app-touch-controls layout="dpad" (action)="onTouch($event)" />
+      <app-touch-controls layout="joystick" (action)="onTouch($event)" />
       <app-high-scores [scores]="scoreService.getScores('snake')" />
     </div>
   `,
