@@ -57,11 +57,13 @@ import { GameModeService } from '../../core/services/game-mode.service';
       flex: 1;
       display: flex;
       flex-direction: column;
+      min-height: 0;
     }
     :host(.game-shell--immersive) .game-shell {
       flex: 1;
       display: flex;
       flex-direction: column;
+      min-height: 0;
       max-width: 100%;
       padding: 0;
     }

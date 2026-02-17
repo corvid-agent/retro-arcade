@@ -101,8 +101,8 @@ export type TouchLayout = 'dpad' | 'tetris' | 'left-right-fire' | 'slider' | 'no
     .touch__dir {
       font-family: var(--font-pixel);
       font-size: 1rem;
-      width: 56px;
-      height: 56px;
+      width: 48px;
+      height: 48px;
       border-radius: 10px;
       border: 1px solid rgba(0, 255, 65, 0.2);
       background: rgba(0, 255, 65, 0.08);
@@ -125,7 +125,7 @@ export type TouchLayout = 'dpad' | 'tetris' | 'left-right-fire' | 'slider' | 'no
     }
     /* Gap between left and right to form the cross shape */
     .touch__dir-row {
-      gap: 60px;
+      gap: 52px;
     }
 
     /* === Tetris layout === */
