@@ -16,9 +16,10 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
                (pointercancel)="joystickUp($event)"
                (pointerleave)="joystickUp($event)"
                role="button"
-               aria-label="Joystick — drag to move"
+               aria-label="Joystick — drag to change direction"
                [attr.touch-action]="'none'">
             <div class="touch__stick-knob"
+                 [class.touch__stick-knob--active]="stickDir()"
                  [style.transform]="'translate(' + knobX() + 'px,' + knobY() + 'px)'">
             </div>
           </div>
@@ -33,24 +34,19 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
                (pointercancel)="joystickUp($event)"
                (pointerleave)="joystickUp($event)"
                role="button"
-               aria-label="Joystick — drag to move"
+               aria-label="Joystick — drag left, right, or down"
                [attr.touch-action]="'none'">
             <div class="touch__stick-knob"
+                 [class.touch__stick-knob--active]="stickDir()"
                  [style.transform]="'translate(' + knobX() + 'px,' + knobY() + 'px)'">
             </div>
           </div>
           <div class="touch__action-group">
             <button class="touch__btn touch__btn--action"
-                    (pointerdown)="startRepeat('up')"
-                    (pointerup)="stopRepeat('up')"
-                    (pointerleave)="stopRepeat('up')"
-                    (pointercancel)="stopRepeat('up')"
+                    (pointerdown)="emitOnce('up')"
                     aria-label="Rotate">&#x21BB;</button>
             <button class="touch__btn touch__btn--action touch__btn--drop"
-                    (pointerdown)="startRepeat('drop')"
-                    (pointerup)="stopRepeat('drop')"
-                    (pointerleave)="stopRepeat('drop')"
-                    (pointercancel)="stopRepeat('drop')"
+                    (pointerdown)="emitOnce('drop')"
                     aria-label="Drop">DROP</button>
           </div>
         </div>
@@ -72,10 +68,7 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
                     aria-label="Right">&rarr;</button>
           </div>
           <button class="touch__btn touch__btn--action"
-                  (pointerdown)="startRepeat('fire')"
-                  (pointerup)="stopRepeat('fire')"
-                  (pointerleave)="stopRepeat('fire')"
-                  (pointercancel)="stopRepeat('fire')"
+                  (pointerdown)="emitOnce('fire')"
                   aria-label="Fire">FIRE</button>
         </div>
       }
@@ -146,12 +139,13 @@ export type TouchLayout = 'joystick' | 'joystick-drop' | 'left-right-fire' | 'sl
       background: rgba(0, 255, 65, 0.12);
       border: 1px solid rgba(0, 255, 65, 0.3);
       box-shadow: 0 0 8px rgba(0, 255, 65, 0.15);
-      transition: box-shadow 0.1s ease;
+      transition: box-shadow 0.1s ease, background 0.1s ease;
       pointer-events: none;
     }
-    .touch__stick-zone:active .touch__stick-knob {
+    .touch__stick-knob--active {
       box-shadow: 0 0 16px rgba(0, 255, 65, 0.4);
-      background: rgba(0, 255, 65, 0.2);
+      background: rgba(0, 255, 65, 0.22);
+      border-color: rgba(0, 255, 65, 0.5);
     }
 
     /* Buttons */
@@ -211,8 +205,9 @@ export class TouchControlsComponent implements OnDestroy {
   // Joystick knob position
   readonly knobX = signal(0);
   readonly knobY = signal(0);
+  readonly stickDir = signal<string | null>(null);
 
-  // Hold-to-repeat timers
+  // Hold-to-repeat timers (for buttons only)
   private repeatTimers = new Map<string, { delay: ReturnType<typeof setTimeout> | null; interval: ReturnType<typeof setInterval> | null }>();
 
   // Joystick state
@@ -228,7 +223,13 @@ export class TouchControlsComponent implements OnDestroy {
   private readonly REPEAT_DELAY = 180;
   private readonly REPEAT_RATE = 80;
 
-  // --- Hold-to-repeat ---
+  // --- Single-fire (no repeat) ---
+
+  emitOnce(act: string): void {
+    this.action.emit(act);
+  }
+
+  // --- Hold-to-repeat (for movement buttons) ---
 
   startRepeat(act: string): void {
     this.stopRepeat(act);
@@ -284,6 +285,7 @@ export class TouchControlsComponent implements OnDestroy {
       this.released.emit(this.stickDirection);
       this.stickDirection = null;
     }
+    this.stickDir.set(null);
     if (this.stickInterval) {
       clearInterval(this.stickInterval);
       this.stickInterval = null;
@@ -294,12 +296,21 @@ export class TouchControlsComponent implements OnDestroy {
     const dx = clientX - this.stickCenterX;
     const dy = clientY - this.stickCenterY;
     const dist = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+    const isDropLayout = this.layout() === 'joystick-drop';
 
     // Clamp knob visual position
     const clampedDist = Math.min(dist, this.MAX_TRAVEL);
-    const angle = Math.atan2(dy, dx);
-    this.knobX.set(Math.round(Math.cos(angle) * clampedDist));
-    this.knobY.set(Math.round(Math.sin(angle) * clampedDist));
+    let visualX = Math.cos(angle) * clampedDist;
+    let visualY = Math.sin(angle) * clampedDist;
+
+    // For joystick-drop, restrict knob from going upward (visual cue)
+    if (isDropLayout && visualY < 0) {
+      visualY = 0;
+    }
+
+    this.knobX.set(Math.round(visualX));
+    this.knobY.set(Math.round(visualY));
 
     // Determine direction
     let newDir: string | null = null;
@@ -309,10 +320,15 @@ export class TouchControlsComponent implements OnDestroy {
       else if (deg >= 45 && deg < 135) newDir = 'down';
       else if (deg >= -135 && deg < -45) newDir = 'up';
       else newDir = 'left';
+
+      // Tetris joystick: ignore UP — rotate has its own button
+      if (isDropLayout && newDir === 'up') {
+        newDir = null;
+      }
     }
 
     if (newDir !== this.stickDirection) {
-      // Direction changed
+      // Direction changed — clear old interval
       if (this.stickInterval) {
         clearInterval(this.stickInterval);
         this.stickInterval = null;
@@ -321,24 +337,29 @@ export class TouchControlsComponent implements OnDestroy {
         this.released.emit(this.stickDirection);
       }
       this.stickDirection = newDir;
+      this.stickDir.set(newDir);
+
       if (newDir) {
         this.action.emit(newDir);
-        this.stickInterval = setInterval(() => {
-          if (this.stickDirection) this.action.emit(this.stickDirection);
-        }, this.REPEAT_RATE);
+
+        // Snake (joystick): no repeat — direction is set once, game loop handles movement
+        // Tetris (joystick-drop): repeat left/right/down for DAS (Delayed Auto Shift)
+        if (isDropLayout) {
+          this.stickInterval = setInterval(() => {
+            if (this.stickDirection) this.action.emit(this.stickDirection);
+          }, this.REPEAT_RATE);
+        }
       }
     }
   }
 
   ngOnDestroy(): void {
-    // Clear all hold-to-repeat timers
     for (const entry of this.repeatTimers.values()) {
       if (entry.delay) clearTimeout(entry.delay);
       if (entry.interval) clearInterval(entry.interval);
     }
     this.repeatTimers.clear();
 
-    // Clear joystick interval
     if (this.stickInterval) {
       clearInterval(this.stickInterval);
       this.stickInterval = null;
