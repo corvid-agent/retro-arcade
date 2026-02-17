@@ -10,7 +10,7 @@ import { GameState } from '../../core/models/game.model';
 import {
   COLS, ROWS, PIECE_COLORS,
   createTetrisState, moveLeft, moveRight, moveDown, rotate, hardDrop,
-  lockAndSpawn, getAbsoluteCells, getTickInterval, TetrisState,
+  lockAndSpawn, getAbsoluteCells, getGhostY, getTickInterval, TetrisState,
 } from './tetris.logic';
 
 const CELL = 24;
@@ -36,7 +36,7 @@ const CELL = 24;
         <span class="tetris-info__label">LEVEL: {{ level() }}</span>
         <span class="tetris-info__label">LINES: {{ lines() }}</span>
       </div>
-      <app-touch-controls layout="joystick-drop" (action)="onTouch($event)" />
+      <app-touch-controls layout="tetris" (action)="onTouch($event)" />
       <app-high-scores [scores]="scoreService.getScores('tetris')" />
     </div>
   `,
@@ -266,6 +266,21 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
           ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
         }
       }
+    }
+
+    // Ghost piece (landing preview)
+    const ghostY = getGhostY(this.gameState);
+    if (ghostY !== this.gameState.currentPos.y) {
+      const ghostCells = getAbsoluteCells(this.gameState.current, { x: this.gameState.currentPos.x, y: ghostY });
+      ctx.strokeStyle = PIECE_COLORS[this.gameState.current.type];
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.35;
+      for (const c of ghostCells) {
+        if (c.y >= 0) {
+          ctx.strokeRect(c.x * CELL + 2, c.y * CELL + 2, CELL - 4, CELL - 4);
+        }
+      }
+      ctx.globalAlpha = 1;
     }
 
     // Current piece

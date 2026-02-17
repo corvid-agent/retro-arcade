@@ -1,6 +1,6 @@
-import { Component, ChangeDetectionStrategy, input, output, signal, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, OnDestroy } from '@angular/core';
 
-export type TouchLayout = 'dpad' | 'joystick-drop' | 'left-right-fire' | 'slider' | 'none';
+export type TouchLayout = 'dpad' | 'tetris' | 'left-right-fire' | 'slider' | 'none';
 
 @Component({
   selector: 'app-touch-controls',
@@ -21,21 +21,27 @@ export type TouchLayout = 'dpad' | 'joystick-drop' | 'left-right-fire' | 'slider
                   (pointerdown)="emitOnce('down')" aria-label="Down">&darr;</button>
         </div>
       }
-      @case ('joystick-drop') {
-        <div class="touch touch--joystick-drop">
-          <div class="touch__stick-zone"
-               (pointerdown)="joystickDown($event)"
-               (pointermove)="joystickMove($event)"
-               (pointerup)="joystickUp($event)"
-               (pointercancel)="joystickUp($event)"
-               (pointerleave)="joystickUp($event)"
-               role="button"
-               aria-label="Joystick — drag left, right, or down"
-               [attr.touch-action]="'none'">
-            <div class="touch__stick-knob"
-                 [class.touch__stick-knob--active]="stickDir()"
-                 [style.transform]="'translate(' + knobX() + 'px,' + knobY() + 'px)'">
-            </div>
+      @case ('tetris') {
+        <div class="touch touch--tetris">
+          <div class="touch__move-group">
+            <button class="touch__btn"
+                    (pointerdown)="startRepeat('left')"
+                    (pointerup)="stopRepeat('left')"
+                    (pointerleave)="stopRepeat('left')"
+                    (pointercancel)="stopRepeat('left')"
+                    aria-label="Left">&larr;</button>
+            <button class="touch__btn"
+                    (pointerdown)="startRepeat('down')"
+                    (pointerup)="stopRepeat('down')"
+                    (pointerleave)="stopRepeat('down')"
+                    (pointercancel)="stopRepeat('down')"
+                    aria-label="Soft drop">&darr;</button>
+            <button class="touch__btn"
+                    (pointerdown)="startRepeat('right')"
+                    (pointerup)="stopRepeat('right')"
+                    (pointerleave)="stopRepeat('right')"
+                    (pointercancel)="stopRepeat('right')"
+                    aria-label="Right">&rarr;</button>
           </div>
           <div class="touch__action-group">
             <button class="touch__btn touch__btn--action"
@@ -122,8 +128,8 @@ export type TouchLayout = 'dpad' | 'joystick-drop' | 'left-right-fire' | 'slider
       gap: 60px;
     }
 
-    /* === Joystick-drop layout (Tetris) === */
-    .touch--joystick-drop {
+    /* === Tetris layout === */
+    .touch--tetris {
       justify-content: space-around;
       align-items: center;
     }
@@ -132,40 +138,6 @@ export type TouchLayout = 'dpad' | 'joystick-drop' | 'left-right-fire' | 'slider
       flex-direction: column;
       gap: var(--space-xs);
       align-items: center;
-    }
-
-    /* Joystick base — compact */
-    .touch__stick-zone {
-      position: relative;
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background: rgba(0, 255, 65, 0.06);
-      border: 1px solid rgba(0, 255, 65, 0.15);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      touch-action: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    /* Joystick knob */
-    .touch__stick-knob {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: rgba(0, 255, 65, 0.12);
-      border: 1px solid rgba(0, 255, 65, 0.3);
-      box-shadow: 0 0 8px rgba(0, 255, 65, 0.15);
-      transition: box-shadow 0.1s ease, background 0.1s ease;
-      pointer-events: none;
-    }
-    .touch__stick-knob--active {
-      box-shadow: 0 0 16px rgba(0, 255, 65, 0.4);
-      background: rgba(0, 255, 65, 0.22);
-      border-color: rgba(0, 255, 65, 0.5);
     }
 
     /* === Left-right-fire layout (Invaders) === */
@@ -232,24 +204,9 @@ export class TouchControlsComponent implements OnDestroy {
   action = output<string>();
   released = output<string>();
 
-  // Joystick knob position
-  readonly knobX = signal(0);
-  readonly knobY = signal(0);
-  readonly stickDir = signal<string | null>(null);
-
   // Hold-to-repeat timers (for movement buttons)
   private repeatTimers = new Map<string, { delay: ReturnType<typeof setTimeout> | null; interval: ReturnType<typeof setInterval> | null }>();
 
-  // Joystick state
-  private stickActive = false;
-  private stickCenterX = 0;
-  private stickCenterY = 0;
-  private stickPointerId: number | null = null;
-  private stickDirection: string | null = null;
-  private stickInterval: ReturnType<typeof setInterval> | null = null;
-
-  private readonly DEAD_ZONE = 15;
-  private readonly MAX_TRAVEL = 36;
   private readonly REPEAT_DELAY = 180;
   private readonly REPEAT_RATE = 80;
 
@@ -282,101 +239,11 @@ export class TouchControlsComponent implements OnDestroy {
     this.released.emit(act);
   }
 
-  // --- Virtual joystick (Tetris: left/right/down only) ---
-
-  joystickDown(e: PointerEvent): void {
-    if (this.stickActive) return;
-    this.stickActive = true;
-    this.stickPointerId = e.pointerId;
-
-    const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
-
-    const rect = el.getBoundingClientRect();
-    this.stickCenterX = rect.left + rect.width / 2;
-    this.stickCenterY = rect.top + rect.height / 2;
-
-    this.updateJoystick(e.clientX, e.clientY);
-  }
-
-  joystickMove(e: PointerEvent): void {
-    if (!this.stickActive || e.pointerId !== this.stickPointerId) return;
-    this.updateJoystick(e.clientX, e.clientY);
-  }
-
-  joystickUp(e: PointerEvent): void {
-    if (!this.stickActive || e.pointerId !== this.stickPointerId) return;
-    this.stickActive = false;
-    this.stickPointerId = null;
-    this.knobX.set(0);
-    this.knobY.set(0);
-
-    if (this.stickDirection) {
-      this.released.emit(this.stickDirection);
-      this.stickDirection = null;
-    }
-    this.stickDir.set(null);
-    if (this.stickInterval) {
-      clearInterval(this.stickInterval);
-      this.stickInterval = null;
-    }
-  }
-
-  private updateJoystick(clientX: number, clientY: number): void {
-    const dx = clientX - this.stickCenterX;
-    const dy = clientY - this.stickCenterY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx);
-
-    // Clamp knob visual — restrict upward movement
-    const clampedDist = Math.min(dist, this.MAX_TRAVEL);
-    const visualX = Math.cos(angle) * clampedDist;
-    const visualY = Math.max(0, Math.sin(angle) * clampedDist);
-
-    this.knobX.set(Math.round(visualX));
-    this.knobY.set(Math.round(visualY));
-
-    // Determine direction (left/right/down only — no up)
-    let newDir: string | null = null;
-    if (dist > this.DEAD_ZONE) {
-      const deg = angle * (180 / Math.PI);
-      if (deg >= -45 && deg < 45) newDir = 'right';
-      else if (deg >= 45 && deg < 135) newDir = 'down';
-      else if (deg >= 135 || deg < -135) newDir = 'left';
-      // up quadrant (-135 to -45) → ignored
-    }
-
-    if (newDir !== this.stickDirection) {
-      if (this.stickInterval) {
-        clearInterval(this.stickInterval);
-        this.stickInterval = null;
-      }
-      if (this.stickDirection) {
-        this.released.emit(this.stickDirection);
-      }
-      this.stickDirection = newDir;
-      this.stickDir.set(newDir);
-
-      if (newDir) {
-        this.action.emit(newDir);
-        // DAS repeat for Tetris movement
-        this.stickInterval = setInterval(() => {
-          if (this.stickDirection) this.action.emit(this.stickDirection);
-        }, this.REPEAT_RATE);
-      }
-    }
-  }
-
   ngOnDestroy(): void {
     for (const entry of this.repeatTimers.values()) {
       if (entry.delay) clearTimeout(entry.delay);
       if (entry.interval) clearInterval(entry.interval);
     }
     this.repeatTimers.clear();
-
-    if (this.stickInterval) {
-      clearInterval(this.stickInterval);
-      this.stickInterval = null;
-    }
   }
 }

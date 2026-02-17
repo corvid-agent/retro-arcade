@@ -205,6 +205,16 @@ function clearLines(board: (PieceType | null)[][]): number {
   return cleared;
 }
 
+export function getGhostY(state: TetrisState): number {
+  let ghostY = state.currentPos.y;
+  while (true) {
+    const next = { x: state.currentPos.x, y: ghostY + 1 };
+    if (collides(getAbsoluteCells(state.current, next), state.board)) break;
+    ghostY++;
+  }
+  return ghostY;
+}
+
 export function getTickInterval(level: number): number {
   return Math.max(100, 1000 - (level - 1) * 80);
 }
