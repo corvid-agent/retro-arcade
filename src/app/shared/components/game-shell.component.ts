@@ -70,12 +70,15 @@ import { GameModeService } from '../../core/services/game-mode.service';
       border-left: none;
       border-right: none;
       border-top: none;
+      margin-bottom: 0;
+      flex-shrink: 0;
     }
     :host(.game-shell--immersive) .game-shell__area {
       flex: 1;
       border-left: none;
       border-right: none;
       min-height: 0;
+      overflow: hidden;
     }
     .game-shell {
       max-width: 600px;

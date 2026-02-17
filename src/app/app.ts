@@ -47,9 +47,10 @@ import { GameModeService } from './core/services/game-mode.service';
       min-height: calc(100vh - 56px);
     }
     main.main--immersive {
-      min-height: 100dvh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     .shortcuts-overlay {
       position: fixed;

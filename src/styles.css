@@ -269,6 +269,46 @@ a:hover { color: var(--accent-cyan); }
   .container { padding: 0 var(--space-sm); }
 }
 
+/* --- Immersive game mode (mobile full-screen gameplay) --- */
+/* Propagate flex column through the full layout chain so
+   game + controls fit exactly in the viewport without scrolling.
+   Chain: main > component-host > .container > game-shell > canvas
+                                             > touch-controls        */
+main.main--immersive > :not(router-outlet) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+main.main--immersive .container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  max-width: 100%;
+  margin: 0;
+}
+
+main.main--immersive app-touch-controls,
+main.main--immersive .tetris-info,
+main.main--immersive .invaders-lives,
+main.main--immersive .breakout-lives {
+  flex-shrink: 0;
+}
+
+main.main--immersive app-high-scores {
+  display: none;
+}
+
+main.main--immersive canvas {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
 /* --- Reduced motion --- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
