@@ -1,12 +1,11 @@
 {
   "name": "retro-arcade",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "scripts": {
-    "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test --no-watch"
   },
   "prettier": {
     "printWidth": 100,
@@ -29,6 +28,7 @@
     "@angular/forms": "^21.1.0",
     "@angular/platform-browser": "^21.1.0",
     "@angular/router": "^21.1.0",
+    "@angular/service-worker": "^21.1.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
