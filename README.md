@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/preview.png" alt="retro-arcade preview" width="100%"></p>
+
 # Retro Arcade
 
 Collection of 6 classic arcade games with pixel-art CRT aesthetics, achievements, high scores, and touch controls for mobile.
