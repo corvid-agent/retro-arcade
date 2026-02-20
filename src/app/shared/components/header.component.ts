@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/cor
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AudioService } from '../../core/services/audio.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { AccessibilityService } from '../../core/services/accessibility.service';
 
 @Component({
   selector: 'app-header',
@@ -11,7 +12,7 @@ import { ThemeService } from '../../core/services/theme.service';
     <header class="header">
       <div class="header__inner container">
         <a routerLink="/home" class="header__brand">
-          <span class="header__logo text-glow">&gt;_</span>
+          <span class="header__logo text-glow" aria-hidden="true">&gt;_</span>
           <span class="header__title">RETRO ARCADE</span>
         </a>
         <nav class="header__nav" aria-label="Main navigation">
@@ -20,7 +21,12 @@ import { ThemeService } from '../../core/services/theme.service';
           <a routerLink="/about" routerLinkActive="active">About</a>
         </nav>
         <div class="header__actions">
-          <button class="header__btn" (click)="onToggleMute()" [attr.aria-label]="audio.muted() ? 'Unmute' : 'Mute'">
+          <button class="header__btn" (click)="a11y.toggleHighContrast()"
+                  [attr.aria-pressed]="a11y.highContrast()"
+                  aria-label="Toggle high contrast mode">
+            HC
+          </button>
+          <button class="header__btn" (click)="onToggleMute()" [attr.aria-label]="audio.muted() ? 'Unmute sound' : 'Mute sound'">
             {{ audio.muted() ? 'MUTE' : 'SND' }}
           </button>
           <button class="header__btn" (click)="theme.toggle()" aria-label="Toggle CRT mode">
@@ -91,6 +97,7 @@ import { ThemeService } from '../../core/services/theme.service';
       text-transform: uppercase;
       letter-spacing: 0.05em;
       transition: color var(--transition-fast);
+      padding: var(--space-xs) var(--space-2xs);
     }
     .header__nav a:hover { color: var(--accent-primary); }
     .header__nav a.active { color: var(--accent-primary); }
@@ -108,10 +115,19 @@ import { ThemeService } from '../../core/services/theme.service';
       color: var(--text-secondary);
       cursor: pointer;
       text-transform: uppercase;
-      min-height: 32px;
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       transition: all var(--transition-fast);
     }
     .header__btn:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .header__btn[aria-pressed='true'] {
+      background-color: var(--accent-primary-dim);
       border-color: var(--accent-primary);
       color: var(--accent-primary);
     }
@@ -140,6 +156,9 @@ import { ThemeService } from '../../core/services/theme.service';
       font-family: var(--font-mono);
       font-size: 0.9rem;
       text-transform: uppercase;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
     }
     .header__mobile-nav a:hover,
     .header__mobile-nav a.active { color: var(--accent-primary); }
@@ -153,6 +172,7 @@ import { ThemeService } from '../../core/services/theme.service';
 export class HeaderComponent {
   protected readonly audio = inject(AudioService);
   protected readonly theme = inject(ThemeService);
+  protected readonly a11y = inject(AccessibilityService);
   readonly menuOpen = signal(false);
 
   onToggleMute(): void {

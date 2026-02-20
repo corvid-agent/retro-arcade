@@ -179,6 +179,7 @@ a:hover { color: var(--accent-cyan); }
   letter-spacing: 0.05em;
   transition: all var(--transition-fast);
   min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -213,6 +214,16 @@ a:hover { color: var(--accent-cyan); }
   box-shadow: 0 0 8px rgba(255, 176, 0, 0.3);
 }
 
+/* --- WCAG AA: Minimum touch target 44px for all interactive elements --- */
+button,
+[role='button'],
+input[type='submit'],
+input[type='button'],
+input[type='reset'] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* --- Scrollbar --- */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-deep); }
@@ -225,10 +236,34 @@ a:hover { color: var(--accent-cyan); }
   color: var(--bg-deep);
 }
 
-/* --- Focus --- */
+/* --- Focus visible (WCAG AA) --- */
 *:focus-visible {
-  outline: 2px solid var(--accent-primary);
+  outline: 3px solid var(--accent-primary);
   outline-offset: 2px;
+}
+
+/* Ensure focus ring is visible on dark backgrounds */
+*:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-primary-glow);
+}
+
+/* Remove default focus for mouse users, keep for keyboard */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* --- Screen-reader-only utility (global) --- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --- Skip to content (a11y) --- */
@@ -321,14 +356,27 @@ main.main--immersive .memory-info {
   flex-shrink: 0;
 }
 
-/* --- Reduced motion --- */
+/* --- Reduced motion (WCAG) --- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
   html { scroll-behavior: auto; }
+
+  /* Disable glow/shadow effects that pulse */
+  .text-glow,
+  .text-glow-amber {
+    text-shadow: none;
+  }
+
+  /* Disable CRT flicker effects */
+  [data-theme='crt'] body::after,
+  [data-theme='crt'] body::before {
+    display: none;
+  }
 }
 
 /* --- Print --- */

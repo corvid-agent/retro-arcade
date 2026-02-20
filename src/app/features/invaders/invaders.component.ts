@@ -6,6 +6,7 @@ import { ScoreService } from '../../core/services/score.service';
 import { AudioService } from '../../core/services/audio.service';
 import { StatsService } from '../../core/services/stats.service';
 import { AchievementService } from '../../core/services/achievement.service';
+import { AccessibilityService } from '../../core/services/accessibility.service';
 import { GameState } from '../../core/models/game.model';
 import { createInvadersState, movePlayer, playerShoot, tickInvaders, InvadersState } from './invaders.logic';
 
@@ -19,6 +20,7 @@ const H = 500;
   template: `
     <div class="invaders-page container">
       <app-game-shell
+        #shell
         gameName="Invaders"
         gameId="invaders"
         [score]="score()"
@@ -30,9 +32,9 @@ const H = 500;
       >
         <canvas #canvas class="invaders-canvas" [width]="W" [height]="H"></canvas>
       </app-game-shell>
-      <div class="invaders-lives">
+      <div class="invaders-lives" role="status" [attr.aria-label]="'Lives remaining: ' + livesArray().length">
         @for (l of livesArray(); track l) {
-          <span class="invaders-lives__icon">&#9650;</span>
+          <span class="invaders-lives__icon" aria-hidden="true">&#9650;</span>
         }
       </div>
       <app-touch-controls layout="left-right-fire" (action)="onTouch($event)" />
@@ -64,11 +66,13 @@ const H = 500;
 })
 export class InvadersComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('shell') shellRef!: GameShellComponent;
 
   readonly scoreService = inject(ScoreService);
   private readonly audio = inject(AudioService);
   private readonly stats = inject(StatsService);
   private readonly achievements = inject(AchievementService);
+  private readonly a11y = inject(AccessibilityService);
 
   readonly score = signal(0);
   readonly hiScore = signal(this.scoreService.getHighScore('invaders'));
@@ -111,7 +115,7 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
   }
 
   onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape' || e.key === 'p') {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
       if (this.state() === 'playing') {
         this.state.set('paused');
         this.audio.play('pause');
@@ -133,7 +137,10 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
     if (action === 'left') movePlayer(this.gameState, 'left');
     if (action === 'right') movePlayer(this.gameState, 'right');
     if (action === 'fire') {
-      if (playerShoot(this.gameState)) this.audio.play('shoot');
+      if (playerShoot(this.gameState)) {
+        this.audio.play('shoot');
+        this.shellRef.triggerFlash('action');
+      }
     }
   }
 
@@ -151,15 +158,25 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
     if (this.keys.has('ArrowLeft') || this.keys.has('a')) movePlayer(this.gameState, 'left');
     if (this.keys.has('ArrowRight') || this.keys.has('d')) movePlayer(this.gameState, 'right');
     if (this.keys.has(' ') || this.keys.has('ArrowUp')) {
-      if (playerShoot(this.gameState)) this.audio.play('shoot');
+      if (playerShoot(this.gameState)) {
+        this.audio.play('shoot');
+        this.shellRef.triggerFlash('action');
+      }
     }
 
     const result = tickInvaders(this.gameState);
     this.score.set(this.gameState.score);
     this.livesArray.set(Array.from({ length: this.gameState.lives }, (_, i) => i));
 
-    if (result.hit) this.audio.play('hit');
-    if (result.playerHit) this.audio.play('explosion');
+    if (result.hit) {
+      this.audio.play('hit');
+      this.shellRef.triggerFlash('score');
+    }
+    if (result.playerHit) {
+      this.audio.play('explosion');
+      this.shellRef.triggerFlash('danger');
+      this.a11y.announce(`Hit! ${this.gameState.lives} lives remaining.`);
+    }
 
     if (this.gameState.gameOver) {
       this.onGameOver();
@@ -173,6 +190,7 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
   private onGameOver(): void {
     this.audio.play('game-over');
     this.state.set('game-over');
+    this.shellRef.triggerFlash('danger');
 
     const isNew = this.scoreService.submit('invaders', this.gameState.score);
     this.isNewHigh.set(isNew);
@@ -194,14 +212,16 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
 
   private render(): void {
     const ctx = this.ctx;
-    ctx.fillStyle = '#0a0a0c';
+    const hc = this.a11y.highContrast();
+
+    ctx.fillStyle = hc ? '#000000' : '#0a0a0c';
     ctx.fillRect(0, 0, W, H);
 
     if (!this.gameState) return;
 
     // Shields
     for (const shield of this.gameState.shields) {
-      ctx.fillStyle = '#00ff41';
+      ctx.fillStyle = hc ? '#ffffff' : '#00ff41';
       for (let y = 0; y < shield.height; y++) {
         for (let x = 0; x < shield.width; x++) {
           if (shield.pixels[y][x]) {
@@ -212,7 +232,7 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
     }
 
     // Aliens
-    const alienColors = ['#00ff41', '#00e5ff', '#ffb000'];
+    const alienColors = hc ? ['#ffffff', '#ffff00', '#00ffff'] : ['#00ff41', '#00e5ff', '#ffb000'];
     for (const alien of this.gameState.aliens) {
       if (!alien.alive) continue;
       ctx.fillStyle = alienColors[alien.type];
@@ -223,9 +243,11 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
     }
 
     // Player
-    ctx.fillStyle = '#00ff41';
-    ctx.shadowColor = '#00ff41';
-    ctx.shadowBlur = 6;
+    ctx.fillStyle = hc ? '#ffffff' : '#00ff41';
+    if (!hc) {
+      ctx.shadowColor = '#00ff41';
+      ctx.shadowBlur = 6;
+    }
     const px = this.gameState.player.x;
     const py = this.gameState.player.y;
     ctx.fillRect(px, py + 4, this.gameState.player.width, 8);
@@ -239,14 +261,14 @@ export class InvadersComponent implements AfterViewInit, OnDestroy {
     }
 
     // Alien bullets
-    ctx.fillStyle = '#ff3333';
+    ctx.fillStyle = hc ? '#ff0000' : '#ff3333';
     for (const b of this.gameState.alienBullets) {
       ctx.fillRect(b.x - 1, b.y, 2, 8);
     }
   }
 
   private renderEmpty(): void {
-    this.ctx.fillStyle = '#0a0a0c';
+    this.ctx.fillStyle = this.a11y.highContrast() ? '#000000' : '#0a0a0c';
     this.ctx.fillRect(0, 0, W, H);
   }
 }

@@ -5,6 +5,7 @@ import { ScoreService } from '../../core/services/score.service';
 import { AudioService } from '../../core/services/audio.service';
 import { StatsService } from '../../core/services/stats.service';
 import { AchievementService } from '../../core/services/achievement.service';
+import { AccessibilityService } from '../../core/services/accessibility.service';
 import { GameState } from '../../core/models/game.model';
 import { createBreakoutState, movePaddle, tickBreakout, BreakoutState } from './breakout.logic';
 
@@ -18,6 +19,7 @@ const H = 500;
   template: `
     <div class="breakout-page container">
       <app-game-shell
+        #shell
         gameName="Breakout"
         gameId="breakout"
         [score]="score()"
@@ -31,9 +33,9 @@ const H = 500;
           (pointermove)="onPointerMove($event)"
           (touchmove)="onTouchMove($event)"></canvas>
       </app-game-shell>
-      <div class="breakout-lives">
+      <div class="breakout-lives" role="status" [attr.aria-label]="'Lives remaining: ' + livesArray().length">
         @for (l of livesArray(); track l) {
-          <span class="breakout-lives__dot">&#9679;</span>
+          <span class="breakout-lives__dot" aria-hidden="true">&#9679;</span>
         }
       </div>
       <app-high-scores [scores]="scoreService.getScores('breakout')" />
@@ -64,11 +66,13 @@ const H = 500;
 })
 export class BreakoutComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('shell') shellRef!: GameShellComponent;
 
   readonly scoreService = inject(ScoreService);
   private readonly audio = inject(AudioService);
   private readonly stats = inject(StatsService);
   private readonly achievements = inject(AchievementService);
+  private readonly a11y = inject(AccessibilityService);
 
   readonly score = signal(0);
   readonly hiScore = signal(this.scoreService.getHighScore('breakout'));
@@ -125,7 +129,7 @@ export class BreakoutComponent implements AfterViewInit, OnDestroy {
   }
 
   onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape' || e.key === 'p') {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
       if (this.state() === 'playing') {
         this.state.set('paused');
         this.audio.play('pause');
@@ -150,8 +154,15 @@ export class BreakoutComponent implements AfterViewInit, OnDestroy {
     this.score.set(this.gameState.score);
     this.livesArray.set(Array.from({ length: this.gameState.lives }, (_, i) => i));
 
-    if (result.brickHit) this.audio.play('brick-break');
-    if (result.died) this.audio.play('die');
+    if (result.brickHit) {
+      this.audio.play('brick-break');
+      this.shellRef.triggerFlash('score');
+    }
+    if (result.died) {
+      this.audio.play('die');
+      this.shellRef.triggerFlash('danger');
+      this.a11y.announce(`Life lost. ${this.gameState.lives} remaining.`);
+    }
 
     if (this.gameState.gameOver) {
       this.onGameOver();
@@ -165,6 +176,7 @@ export class BreakoutComponent implements AfterViewInit, OnDestroy {
   private onGameOver(): void {
     this.audio.play('game-over');
     this.state.set('game-over');
+    this.shellRef.triggerFlash('danger');
 
     const isNew = this.scoreService.submit('breakout', this.gameState.score);
     this.isNewHigh.set(isNew);
@@ -187,7 +199,9 @@ export class BreakoutComponent implements AfterViewInit, OnDestroy {
 
   private render(): void {
     const ctx = this.ctx;
-    ctx.fillStyle = '#0a0a0c';
+    const hc = this.a11y.highContrast();
+
+    ctx.fillStyle = hc ? '#000000' : '#0a0a0c';
     ctx.fillRect(0, 0, W, H);
 
     if (!this.gameState) return;
@@ -195,16 +209,19 @@ export class BreakoutComponent implements AfterViewInit, OnDestroy {
     // Bricks
     for (const b of this.gameState.bricks) {
       if (b.broken) continue;
-      ctx.fillStyle = b.hits > 1 ? '#ffffff' : b.color;
+      ctx.fillStyle = hc ? '#ffffff' : (b.hits > 1 ? '#ffffff' : b.color);
       ctx.fillRect(b.x, b.y, b.width, b.height);
-      ctx.strokeStyle = '#0a0a0c';
+      ctx.strokeStyle = hc ? '#000000' : '#0a0a0c';
+      ctx.lineWidth = hc ? 2 : 1;
       ctx.strokeRect(b.x, b.y, b.width, b.height);
     }
 
     // Paddle
-    ctx.fillStyle = '#00ff41';
-    ctx.shadowColor = '#00ff41';
-    ctx.shadowBlur = 8;
+    ctx.fillStyle = hc ? '#ffffff' : '#00ff41';
+    if (!hc) {
+      ctx.shadowColor = '#00ff41';
+      ctx.shadowBlur = 8;
+    }
     ctx.fillRect(this.gameState.paddle.x, this.gameState.paddle.y, this.gameState.paddle.width, this.gameState.paddle.height);
     ctx.shadowBlur = 0;
 
@@ -213,10 +230,15 @@ export class BreakoutComponent implements AfterViewInit, OnDestroy {
     ctx.beginPath();
     ctx.arc(this.gameState.ball.x, this.gameState.ball.y, this.gameState.ball.radius, 0, Math.PI * 2);
     ctx.fill();
+    if (hc) {
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   }
 
   private renderEmpty(): void {
-    this.ctx.fillStyle = '#0a0a0c';
+    this.ctx.fillStyle = this.a11y.highContrast() ? '#000000' : '#0a0a0c';
     this.ctx.fillRect(0, 0, W, H);
   }
 }

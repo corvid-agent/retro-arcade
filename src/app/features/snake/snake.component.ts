@@ -6,12 +6,13 @@ import { ScoreService } from '../../core/services/score.service';
 import { AudioService } from '../../core/services/audio.service';
 import { StatsService } from '../../core/services/stats.service';
 import { AchievementService } from '../../core/services/achievement.service';
+import { AccessibilityService } from '../../core/services/accessibility.service';
 import { GameState } from '../../core/models/game.model';
 import { createSnakeState, setDirection, tick, SnakeState, Direction } from './snake.logic';
 
 const COLS = 20;
 const ROWS = 20;
-const TICK_MS = 150;
+const BASE_TICK_MS = 150;
 
 @Component({
   selector: 'app-snake',
@@ -20,6 +21,7 @@ const TICK_MS = 150;
   template: `
     <div class="snake-page container">
       <app-game-shell
+        #shell
         gameName="Snake"
         gameId="snake"
         [score]="score()"
@@ -51,11 +53,13 @@ const TICK_MS = 150;
 })
 export class SnakeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('shell') shellRef!: GameShellComponent;
 
   readonly scoreService = inject(ScoreService);
   private readonly audio = inject(AudioService);
   private readonly stats = inject(StatsService);
   private readonly achievements = inject(AchievementService);
+  private readonly a11y = inject(AccessibilityService);
 
   readonly score = signal(0);
   readonly hiScore = signal(this.scoreService.getHighScore('snake'));
@@ -105,7 +109,7 @@ export class SnakeComponent implements AfterViewInit, OnDestroy {
       w: 'up', s: 'down', a: 'left', d: 'right',
     };
 
-    if (e.key === 'Escape' || e.key === 'p') {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
       e.preventDefault();
       if (this.state() === 'playing') {
         this.state.set('paused');
@@ -141,7 +145,8 @@ export class SnakeComponent implements AfterViewInit, OnDestroy {
   private loop(ts: number): void {
     if (this.state() !== 'playing') return;
 
-    if (ts - this.lastTick >= TICK_MS) {
+    const tickMs = BASE_TICK_MS * this.a11y.speedMultiplier();
+    if (ts - this.lastTick >= tickMs) {
       this.lastTick = ts;
       const result = tick(this.gameState);
 
@@ -152,6 +157,7 @@ export class SnakeComponent implements AfterViewInit, OnDestroy {
       if (result.ate) {
         this.audio.play('eat');
         this.score.set(this.gameState.score);
+        this.shellRef.triggerFlash('score');
       }
     }
 
@@ -162,6 +168,7 @@ export class SnakeComponent implements AfterViewInit, OnDestroy {
   private onGameOver(): void {
     this.audio.play('die');
     this.state.set('game-over');
+    this.shellRef.triggerFlash('danger');
     const finalScore = this.gameState.score;
     this.score.set(finalScore);
 
@@ -187,14 +194,15 @@ export class SnakeComponent implements AfterViewInit, OnDestroy {
     const ctx = this.ctx;
     const cellW = this.canvasW / COLS;
     const cellH = this.canvasH / ROWS;
+    const hc = this.a11y.highContrast();
 
     // Background
-    ctx.fillStyle = '#0a0a0c';
+    ctx.fillStyle = hc ? '#000000' : '#0a0a0c';
     ctx.fillRect(0, 0, this.canvasW, this.canvasH);
 
     // Grid lines
-    ctx.strokeStyle = '#111114';
-    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = hc ? '#333333' : '#111114';
+    ctx.lineWidth = hc ? 1 : 0.5;
     for (let x = 0; x <= COLS; x++) {
       ctx.beginPath();
       ctx.moveTo(x * cellW, 0);
@@ -211,20 +219,33 @@ export class SnakeComponent implements AfterViewInit, OnDestroy {
     if (!this.gameState) return;
 
     // Food
-    ctx.fillStyle = '#ff3333';
+    ctx.fillStyle = hc ? '#ff0000' : '#ff3333';
     ctx.fillRect(this.gameState.food.x * cellW + 2, this.gameState.food.y * cellH + 2, cellW - 4, cellH - 4);
+    if (hc) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(this.gameState.food.x * cellW + 2, this.gameState.food.y * cellH + 2, cellW - 4, cellH - 4);
+    }
 
     // Snake
     for (let i = 0; i < this.gameState.snake.length; i++) {
       const seg = this.gameState.snake[i];
-      ctx.fillStyle = i === 0 ? '#00ff41' : '#00cc33';
-      ctx.fillRect(seg.x * cellW + 1, seg.y * cellH + 1, cellW - 2, cellH - 2);
+      if (hc) {
+        ctx.fillStyle = i === 0 ? '#ffffff' : '#cccccc';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.fillRect(seg.x * cellW + 1, seg.y * cellH + 1, cellW - 2, cellH - 2);
+        ctx.strokeRect(seg.x * cellW + 1, seg.y * cellH + 1, cellW - 2, cellH - 2);
+      } else {
+        ctx.fillStyle = i === 0 ? '#00ff41' : '#00cc33';
+        ctx.fillRect(seg.x * cellW + 1, seg.y * cellH + 1, cellW - 2, cellH - 2);
+      }
     }
   }
 
   private renderIdle(): void {
     const ctx = this.ctx;
-    ctx.fillStyle = '#0a0a0c';
+    ctx.fillStyle = this.a11y.highContrast() ? '#000000' : '#0a0a0c';
     ctx.fillRect(0, 0, this.canvasW, this.canvasH);
   }
 }

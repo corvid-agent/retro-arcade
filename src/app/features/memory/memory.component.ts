@@ -1,10 +1,11 @@
-import { Component, ChangeDetectionStrategy, signal, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, ViewChild } from '@angular/core';
 import { GameShellComponent } from '../../shared/components/game-shell.component';
 import { HighScoresComponent } from '../../shared/components/high-scores.component';
 import { ScoreService } from '../../core/services/score.service';
 import { AudioService } from '../../core/services/audio.service';
 import { StatsService } from '../../core/services/stats.service';
 import { AchievementService } from '../../core/services/achievement.service';
+import { AccessibilityService } from '../../core/services/accessibility.service';
 import { GameState } from '../../core/models/game.model';
 import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } from './memory.logic';
 
@@ -15,6 +16,7 @@ import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } fr
   template: `
     <div class="memory-page container">
       <app-game-shell
+        #shell
         gameName="Memory"
         gameId="memory"
         [score]="score()"
@@ -24,23 +26,24 @@ import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } fr
         (start)="onStart()"
         (resume)="onResume()"
       >
-        <div class="memory-board">
+        <div class="memory-board" role="grid" aria-label="Memory card grid">
           @for (card of gameState()?.cards ?? []; track card.id; let i = $index) {
             <button class="memory-card"
                     [class.memory-card--flipped]="card.flipped || card.matched"
                     [class.memory-card--matched]="card.matched"
                     (click)="onFlip(i)"
                     [disabled]="card.matched"
-                    [attr.aria-label]="card.flipped || card.matched ? card.symbol : 'Hidden card'">
+                    [attr.aria-label]="card.flipped || card.matched ? 'Card: ' + card.symbol + (card.matched ? ' (matched)' : '') : 'Hidden card'"
+                    role="gridcell">
               <div class="memory-card__inner">
-                <div class="memory-card__front">?</div>
-                <div class="memory-card__back">{{ card.symbol }}</div>
+                <div class="memory-card__front" aria-hidden="true">?</div>
+                <div class="memory-card__back" aria-hidden="true">{{ card.symbol }}</div>
               </div>
             </button>
           }
         </div>
       </app-game-shell>
-      <div class="memory-info">
+      <div class="memory-info" role="status" aria-live="polite">
         <span>MOVES: {{ gameState()?.moves ?? 0 }}</span>
         <span>PAIRS: {{ gameState()?.pairs ?? 0 }}/{{ gameState()?.totalPairs ?? 0 }}</span>
       </div>
@@ -65,6 +68,8 @@ import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } fr
       border: none;
       cursor: pointer;
       padding: 0;
+      min-height: 44px;
+      min-width: 44px;
     }
     .memory-card__inner {
       position: relative;
@@ -118,13 +123,24 @@ import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } fr
       .memory-board { gap: 4px; padding: 8px; }
       .memory-card__front, .memory-card__back { font-size: 0.7rem; }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .memory-card__inner {
+        transition: none;
+      }
+    }
   `],
+  host: {
+    '(document:keydown)': 'onKeydown($event)',
+  },
 })
 export class MemoryComponent {
+  @ViewChild('shell') shellRef!: GameShellComponent;
+
   readonly scoreService = inject(ScoreService);
   private readonly audio = inject(AudioService);
   private readonly stats = inject(StatsService);
   private readonly achievements = inject(AchievementService);
+  private readonly a11y = inject(AccessibilityService);
 
   readonly score = signal(0);
   readonly hiScore = signal(this.scoreService.getHighScore('memory'));
@@ -133,6 +149,18 @@ export class MemoryComponent {
   readonly gameState = signal<MemoryState | null>(null);
 
   private unflipTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      if (this.state() === 'playing') {
+        this.state.set('paused');
+        this.audio.play('pause');
+      } else if (this.state() === 'paused') {
+        this.onResume();
+      }
+    }
+  }
 
   onStart(): void {
     this.audio.init();
@@ -159,14 +187,20 @@ export class MemoryComponent {
 
     if (result === 'flip') {
       this.audio.play('flip');
+      this.shellRef.triggerFlash('action');
+      this.a11y.announce(`Card flipped: ${gs.cards[index].symbol}`);
     } else if (result === 'match') {
       this.audio.play('match');
+      this.shellRef.triggerFlash('success');
       this.score.set(getScore(gs));
+      this.a11y.announce(`Match found! ${gs.pairs} of ${gs.totalPairs} pairs.`);
       if (gs.gameOver) {
         this.onGameOver();
       }
     } else if (result === 'mismatch') {
       this.audio.play('flip');
+      this.shellRef.triggerFlash('danger');
+      this.a11y.announce('No match.');
       this.unflipTimeout = setTimeout(() => {
         unflipMismatch(gs);
         this.gameState.set({ ...gs });

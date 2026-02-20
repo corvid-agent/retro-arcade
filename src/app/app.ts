@@ -29,15 +29,16 @@ import { GameModeService } from './core/services/game-mode.service';
     }
 
     @if (shortcuts.showHelp()) {
-      <div class="shortcuts-overlay" (click)="shortcuts.showHelp.set(false)">
+      <div class="shortcuts-overlay" (click)="shortcuts.showHelp.set(false)" role="dialog" aria-label="Keyboard shortcuts">
         <div class="shortcuts-panel pixel-border" (click)="$event.stopPropagation()">
           <h3>Keyboard Shortcuts</h3>
           <div class="shortcuts-list">
             <div class="shortcut"><kbd>?</kbd> <span>Toggle this help</span></div>
             <div class="shortcut"><kbd>M</kbd> <span>Toggle mute</span></div>
             <div class="shortcut"><kbd>Esc</kbd> <span>Close / Pause</span></div>
+            <div class="shortcut"><kbd>P</kbd> <span>Pause / Resume game</span></div>
           </div>
-          <button class="btn" (click)="shortcuts.showHelp.set(false)">Close</button>
+          <button class="btn" (click)="shortcuts.showHelp.set(false)" aria-label="Close keyboard shortcuts">Close</button>
         </div>
       </div>
     }

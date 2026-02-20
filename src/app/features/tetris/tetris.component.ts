@@ -6,6 +6,7 @@ import { ScoreService } from '../../core/services/score.service';
 import { AudioService } from '../../core/services/audio.service';
 import { StatsService } from '../../core/services/stats.service';
 import { AchievementService } from '../../core/services/achievement.service';
+import { AccessibilityService } from '../../core/services/accessibility.service';
 import { GameState } from '../../core/models/game.model';
 import {
   COLS, ROWS, PIECE_COLORS,
@@ -15,6 +16,12 @@ import {
 
 const CELL = 24;
 
+/** High-contrast palette for Tetris pieces. */
+const HC_COLORS: Record<string, string> = {
+  I: '#00ffff', O: '#ffff00', T: '#ff00ff', S: '#00ff00',
+  Z: '#ff0000', J: '#0066ff', L: '#ff8800',
+};
+
 @Component({
   selector: 'app-tetris',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,6 +29,7 @@ const CELL = 24;
   template: `
     <div class="tetris-page container">
       <app-game-shell
+        #shell
         gameName="Tetris"
         gameId="tetris"
         [score]="score()"
@@ -66,11 +74,13 @@ const CELL = 24;
 })
 export class TetrisComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('shell') shellRef!: GameShellComponent;
 
   readonly scoreService = inject(ScoreService);
   private readonly audio = inject(AudioService);
   private readonly stats = inject(StatsService);
   private readonly achievements = inject(AchievementService);
+  private readonly a11y = inject(AccessibilityService);
 
   readonly score = signal(0);
   readonly hiScore = signal(this.scoreService.getHighScore('tetris'));
@@ -119,7 +129,7 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
   onKeydown(e: KeyboardEvent): void {
     if (this.state() !== 'playing' && this.state() !== 'paused') return;
 
-    if (e.key === 'Escape' || e.key === 'p') {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
       e.preventDefault();
       if (this.state() === 'playing') { this.pause(); } else { this.onResume(); }
       return;
@@ -157,6 +167,7 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
         this.gameState.score += dropped * 2;
         this.score.set(this.gameState.score);
         this.audio.play('drop');
+        this.shellRef.triggerFlash('action');
         this.lockPiece();
         break;
     }
@@ -172,6 +183,7 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
       case 'drop':
         hardDrop(this.gameState);
         this.audio.play('drop');
+        this.shellRef.triggerFlash('action');
         this.lockPiece();
         break;
     }
@@ -190,7 +202,7 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
   private loop(ts: number): void {
     if (this.state() !== 'playing') return;
 
-    const tickMs = getTickInterval(this.gameState.level);
+    const tickMs = getTickInterval(this.gameState.level) * this.a11y.speedMultiplier();
     if (ts - this.lastTick >= tickMs) {
       this.lastTick = ts;
       if (!moveDown(this.gameState)) {
@@ -210,8 +222,12 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
 
     if (cleared === 4) {
       this.audio.play('tetris');
+      this.shellRef.triggerFlash('success');
+      this.a11y.announce(`Tetris! 4 lines cleared. Level ${this.gameState.level}.`);
     } else if (cleared > 0) {
       this.audio.play('line-clear');
+      this.shellRef.triggerFlash('score');
+      this.a11y.announce(`${cleared} line${cleared > 1 ? 's' : ''} cleared.`);
     }
 
     if (this.gameState.gameOver) {
@@ -222,6 +238,7 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
   private onGameOver(): void {
     this.audio.play('game-over');
     this.state.set('game-over');
+    this.shellRef.triggerFlash('danger');
     cancelAnimationFrame(this.animId);
 
     const isNew = this.scoreService.submit('tetris', this.gameState.score, this.gameState.level);
@@ -243,12 +260,14 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
 
   private render(): void {
     const ctx = this.ctx;
-    ctx.fillStyle = '#0a0a0c';
+    const hc = this.a11y.highContrast();
+
+    ctx.fillStyle = hc ? '#000000' : '#0a0a0c';
     ctx.fillRect(0, 0, this.canvasW, this.canvasH);
 
     // Grid
-    ctx.strokeStyle = '#111114';
-    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = hc ? '#333333' : '#111114';
+    ctx.lineWidth = hc ? 1 : 0.5;
     for (let x = 0; x <= COLS; x++) {
       ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, this.canvasH); ctx.stroke();
     }
@@ -263,8 +282,13 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
       for (let x = 0; x < COLS; x++) {
         const cell = this.gameState.board[y][x];
         if (cell) {
-          ctx.fillStyle = PIECE_COLORS[cell];
+          ctx.fillStyle = hc ? (HC_COLORS[cell] ?? '#ffffff') : PIECE_COLORS[cell];
           ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+          if (hc) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+          }
         }
       }
     }
@@ -273,9 +297,10 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
     const ghostY = getGhostY(this.gameState);
     if (ghostY !== this.gameState.currentPos.y) {
       const ghostCells = getAbsoluteCells(this.gameState.current, { x: this.gameState.currentPos.x, y: ghostY });
-      ctx.strokeStyle = PIECE_COLORS[this.gameState.current.type];
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.35;
+      const ghostColor = hc ? '#ffffff' : PIECE_COLORS[this.gameState.current.type];
+      ctx.strokeStyle = ghostColor;
+      ctx.lineWidth = hc ? 2 : 1;
+      ctx.globalAlpha = hc ? 0.6 : 0.35;
       for (const c of ghostCells) {
         if (c.y >= 0) {
           ctx.strokeRect(c.x * CELL + 2, c.y * CELL + 2, CELL - 4, CELL - 4);
@@ -286,16 +311,21 @@ export class TetrisComponent implements AfterViewInit, OnDestroy {
 
     // Current piece
     const cells = getAbsoluteCells(this.gameState.current, this.gameState.currentPos);
-    ctx.fillStyle = PIECE_COLORS[this.gameState.current.type];
+    ctx.fillStyle = hc ? (HC_COLORS[this.gameState.current.type] ?? '#ffffff') : PIECE_COLORS[this.gameState.current.type];
     for (const c of cells) {
       if (c.y >= 0) {
         ctx.fillRect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2);
+        if (hc) {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2);
+        }
       }
     }
   }
 
   private renderEmpty(): void {
-    this.ctx.fillStyle = '#0a0a0c';
+    this.ctx.fillStyle = this.a11y.highContrast() ? '#000000' : '#0a0a0c';
     this.ctx.fillRect(0, 0, this.canvasW, this.canvasH);
   }
 }
