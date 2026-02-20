@@ -32,6 +32,7 @@ const TILE_COLORS: Record<number, { bg: string; fg: string }> = {
     <div class="p2048-page container">
       <app-game-shell
         gameName="2048"
+        gameId="2048"
         [score]="score()"
         [hiScore]="hiScore()"
         [state]="state()"

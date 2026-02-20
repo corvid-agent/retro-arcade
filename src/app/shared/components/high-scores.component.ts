@@ -16,6 +16,7 @@ import { HighScore } from '../../core/models/game.model';
           <thead>
             <tr>
               <th>#</th>
+              <th>Name</th>
               <th>Score</th>
               <th>Date</th>
             </tr>
@@ -24,6 +25,7 @@ import { HighScore } from '../../core/models/game.model';
             @for (entry of scores(); track entry.date; let i = $index) {
               <tr [class.scores__highlight]="i === 0">
                 <td>{{ i + 1 }}</td>
+                <td class="scores__initials">{{ entry.initials || '---' }}</td>
                 <td>{{ entry.score }}</td>
                 <td>{{ entry.date | date:'MM/dd' }}</td>
               </tr>
@@ -69,6 +71,10 @@ import { HighScore } from '../../core/models/game.model';
     .scores__highlight td {
       color: var(--accent-primary);
       font-weight: 600;
+    }
+    .scores__initials {
+      color: var(--accent-amber);
+      letter-spacing: 1px;
     }
   `],
 })

@@ -17,12 +17,13 @@ export class ScoreService {
     return list.length > 0 ? list[0].score : 0;
   }
 
-  submit(gameId: GameId, score: number, level?: number): boolean {
+  submit(gameId: GameId, score: number, level?: number, initials?: string): boolean {
     const list = [...this.getScores(gameId)];
     const entry: HighScore = {
       score,
       date: new Date().toISOString(),
       level,
+      initials: initials || this.getLastInitials(),
     };
 
     list.push(entry);
@@ -49,6 +50,25 @@ export class ScoreService {
   clearAll(): void {
     this.scores.set({});
     this.save();
+  }
+
+  updateLatestInitials(gameId: GameId, initials: string): void {
+    const clean = initials.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+    if (!clean) return;
+    localStorage.setItem('retro-arcade-initials', clean);
+    const list = [...this.getScores(gameId)];
+    if (list.length > 0) {
+      const top = list[0];
+      if (!top.initials) {
+        top.initials = clean;
+        this.scores.update((all) => ({ ...all, [gameId]: list }));
+        this.save();
+      }
+    }
+  }
+
+  getLastInitials(): string {
+    return localStorage.getItem('retro-arcade-initials') || '';
   }
 
   private load(): Record<string, HighScore[]> {

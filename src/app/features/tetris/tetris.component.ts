@@ -23,6 +23,7 @@ const CELL = 24;
     <div class="tetris-page container">
       <app-game-shell
         gameName="Tetris"
+        gameId="tetris"
         [score]="score()"
         [hiScore]="hiScore()"
         [state]="state()"

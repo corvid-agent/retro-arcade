@@ -21,6 +21,7 @@ const TICK_MS = 150;
     <div class="snake-page container">
       <app-game-shell
         gameName="Snake"
+        gameId="snake"
         [score]="score()"
         [hiScore]="hiScore()"
         [state]="state()"

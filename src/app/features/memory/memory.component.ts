@@ -16,6 +16,7 @@ import { createMemoryState, flipCard, unflipMismatch, getScore, MemoryState } fr
     <div class="memory-page container">
       <app-game-shell
         gameName="Memory"
+        gameId="memory"
         [score]="score()"
         [hiScore]="hiScore()"
         [state]="state()"

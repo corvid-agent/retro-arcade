@@ -19,6 +19,7 @@ const H = 500;
     <div class="breakout-page container">
       <app-game-shell
         gameName="Breakout"
+        gameId="breakout"
         [score]="score()"
         [hiScore]="hiScore()"
         [state]="state()"

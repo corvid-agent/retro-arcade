@@ -15,6 +15,7 @@ export interface HighScore {
   score: number;
   date: string;
   level?: number;
+  initials?: string;
 }
 
 export interface Achievement {

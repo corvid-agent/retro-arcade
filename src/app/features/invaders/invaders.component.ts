@@ -20,6 +20,7 @@ const H = 500;
     <div class="invaders-page container">
       <app-game-shell
         gameName="Invaders"
+        gameId="invaders"
         [score]="score()"
         [hiScore]="hiScore()"
         [state]="state()"
